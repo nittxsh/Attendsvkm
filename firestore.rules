@@ -1,0 +1,122 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reuseable Global Security Helper Functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Role Lookup Functions using database Lookups
+    function getUserRole(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.role;
+    }
+
+    function isTeacher() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        getUserRole(request.auth.uid) == "teacher"
+      );
+    }
+
+    // 1. Users Collection Rules
+    function isValidUser(data) {
+      return data.uid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 100 &&
+             data.role is string && (data.role == "teacher" || data.role == "student");
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming());
+      allow update: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) && (
+        // Prevent altering the role
+        incoming().role == existing().role
+      );
+      allow delete: if false; // User deletion is restricted to system admin
+    }
+
+    // 2. Courses Collection Rules
+    function isValidCourse(data) {
+      return data.id is string && data.id.size() <= 64 &&
+             data.code is string && data.code.size() <= 20 &&
+             data.name is string && data.name.size() <= 120 &&
+             data.instructorId is string;
+    }
+
+    match /courses/{courseId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isTeacher() && isValidCourse(incoming()) && incoming().instructorId == request.auth.uid;
+      allow update: if isSignedIn() && isTeacher() && isValidCourse(incoming()) && existing().instructorId == request.auth.uid && (
+        incoming().instructorId == existing().instructorId
+      );
+      allow delete: if isSignedIn() && isTeacher() && existing().instructorId == request.auth.uid;
+    }
+
+    // 3. Attendance Session Logs Rules
+    function isValidAttendance(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.courseId is string && data.courseId.size() <= 128 &&
+             data.date is string && data.date.size() <= 24 &&
+             data.markedBy == request.auth.uid &&
+             data.records is map;
+    }
+
+    match /attendance/{attendanceId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isTeacher() && isValidAttendance(incoming());
+      allow update: if isSignedIn() && isTeacher() && isValidAttendance(incoming()) && existing().markedBy == request.auth.uid && (
+        incoming().courseId == existing().courseId &&
+        incoming().markedBy == existing().markedBy
+      );
+      allow delete: if isSignedIn() && isTeacher() && existing().markedBy == request.auth.uid;
+    }
+
+    // 4. Leave Request Approvals Security Flow
+    function isValidLeaveRequest(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.studentId is string && data.studentId.size() <= 128 &&
+             data.courseId is string && data.courseId.size() <= 128 &&
+             data.startDate is string && data.startDate.size() <= 24 &&
+             data.endDate is string && data.endDate.size() <= 24 &&
+             data.reason is string && data.reason.size() <= 500 &&
+             data.status is string && (data.status == "pending" || data.status == "approved" || data.status == "rejected");
+    }
+
+    match /leaveRequests/{requestId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidLeaveRequest(incoming()) && incoming().studentId == request.auth.uid && incoming().status == "pending";
+      allow update: if isSignedIn() && (
+        // Students can only edit reasons of their pending requests
+        (isOwner(existing().studentId) && existing().status == "pending" && isValidLeaveRequest(incoming()) && incoming().status == "pending" && incoming().studentId == request.auth.uid) ||
+        // Instructors can change approve/reject status
+        (isTeacher() && isValidLeaveRequest(incoming()) && incoming().studentId == existing().studentId && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'notes'])
+        ))
+      );
+      allow delete: if isSignedIn() && isOwner(existing().studentId) && existing().status == "pending";
+    }
+  }
+}

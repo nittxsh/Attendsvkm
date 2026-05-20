@@ -1,0 +1,8 @@
+{
+  "name": "College Attendance Management and AI Scanner",
+  "description": "An AI-powered full-stack academic attendance system featuring dynamic student leave request portals, automated roster scanners, and predictive attendance risk metrics using Gemini 3.5 Flash.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

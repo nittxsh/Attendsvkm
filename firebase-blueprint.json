@@ -1,0 +1,194 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile representing professors or academic students.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Unique identifier assigned to the user."
+        },
+        "name": {
+          "type": "string",
+          "description": "Full display name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Verified academic email address."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["teacher", "student"],
+          "description": "Security access level of the profile."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Optional student identification / roll number."
+        },
+        "department": {
+          "type": "string",
+          "description": "Academic department associated with the profile."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp."
+        }
+      },
+      "required": ["uid", "name", "email", "role", "createdAt"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Subject syllabus outlining the instructor and enrolled student roster.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Course identifier key."
+        },
+        "code": {
+          "type": "string",
+          "description": "Acronym subject code."
+        },
+        "name": {
+          "type": "string",
+          "description": "Academic module title."
+        },
+        "department": {
+          "type": "string",
+          "description": "Academic department."
+        },
+        "semester": {
+          "type": "string",
+          "description": "Linear syllabus semester label."
+        },
+        "instructorId": {
+          "type": "string",
+          "description": "UID of the teaching professor."
+        },
+        "studentIds": {
+          "type": "array",
+          "description": "List of student UIDs enrolled in the course."
+        }
+      },
+      "required": ["id", "code", "name", "department", "semester", "instructorId", "studentIds"]
+    },
+    "AttendanceSession": {
+      "title": "AttendanceSession",
+      "description": "Daily attendance checkpoints logging course class states.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique session key."
+        },
+        "courseId": {
+          "type": "string",
+          "description": "Reference course ID."
+        },
+        "date": {
+          "type": "string",
+          "format": "date",
+          "description": "Calendar date of the session."
+        },
+        "sessionName": {
+          "type": "string",
+          "description": "Description index or topic lecture name."
+        },
+        "markedBy": {
+          "type": "string",
+          "description": "Professor UID logging the session."
+        },
+        "records": {
+          "type": "object",
+          "description": "Map of student UID references to attendance status: present, absent, late."
+        },
+        "aiNotes": {
+          "type": "string",
+          "description": "Additional annotation notes extracted by AI logger processors."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Time the roll call was recorded."
+        }
+      },
+      "required": ["id", "courseId", "date", "sessionName", "markedBy", "records", "createdAt"]
+    },
+    "LeaveRequest": {
+      "title": "LeaveRequest",
+      "description": "Absence excuses submitted by students for review.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique request code identifier."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Student UID making the application."
+        },
+        "studentName": {
+          "type": "string",
+          "description": "Name of the student."
+        },
+        "courseId": {
+          "type": "string",
+          "description": "Target course ID reference."
+        },
+        "courseName": {
+          "type": "string",
+          "description": "Target course name text."
+        },
+        "startDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Sickness absence start date."
+        },
+        "endDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Sickness absence end date."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Justification reasoning text."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"],
+          "description": "Latest review progression status."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Professor reviewer feedback notes."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the appeal was registered."
+        }
+      },
+      "required": ["id", "studentId", "studentName", "courseId", "courseName", "startDate", "endDate", "reason", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{uid}": {
+      "schema": "User",
+      "description": "Collection storing student and teacher account settings and roles."
+    },
+    "courses/{courseId}": {
+      "schema": "Course",
+      "description": "Collection tracking subject class syllabus structures and enrollment registries."
+    },
+    "attendance/{sessionId}": {
+      "schema": "AttendanceSession",
+      "description": "Daily roll call registers logged under specific lectures."
+    },
+    "leaveRequests/{leaveId}": {
+      "schema": "LeaveRequest",
+      "description": "Course-specific medical and personal leave claims submitted by student profiles."
+    }
+  }
+}
